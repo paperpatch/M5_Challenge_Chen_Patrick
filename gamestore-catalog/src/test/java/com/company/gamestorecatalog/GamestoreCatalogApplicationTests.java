@@ -1,10 +1,10 @@
-package com.company.serviceregistry;
+package com.company.gamestorecatalog;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ServiceRegistryApplicationTests {
+class GamestoreCatalogApplicationTests {
 
 	@Test
 	void contextLoads() {
