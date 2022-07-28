@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TaxRepository extends JpaRepository<Tax, String> {
+    Tax findByState(String state);
 }

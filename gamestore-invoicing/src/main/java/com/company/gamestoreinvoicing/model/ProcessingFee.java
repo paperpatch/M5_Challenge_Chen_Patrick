@@ -20,6 +20,14 @@ public class ProcessingFee {
     private String productType;
     private BigDecimal fee;
 
+    public ProcessingFee() {
+    }
+
+    public ProcessingFee(String productType, BigDecimal fee) {
+        this.productType = productType;
+        this.fee = fee;
+    }
+
     public String getProductType() {
         return productType;
     }
