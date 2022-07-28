@@ -1,12 +1,10 @@
 package com.company.gamestoreinvoicing.service;
 
-import com.company.gamestoreinvoicing.model.Console;
-import com.company.gamestoreinvoicing.model.Game;
-import com.company.gamestoreinvoicing.model.Invoice;
-import com.company.gamestoreinvoicing.model.TShirt;
+import com.company.gamestoreinvoicing.model.*;
 import com.company.gamestoreinvoicing.repository.InvoiceRepository;
 import com.company.gamestoreinvoicing.repository.ProcessingFeeRepository;
 import com.company.gamestoreinvoicing.repository.TaxRepository;
+import com.company.gamestoreinvoicing.util.feign.CatalogClient;
 import com.company.gamestoreinvoicing.viewModel.ConsoleViewModel;
 import com.company.gamestoreinvoicing.viewModel.GameViewModel;
 import com.company.gamestoreinvoicing.viewModel.InvoiceViewModel;
@@ -28,13 +26,15 @@ public class GameStoreServiceLayer {
     private final String GAME_ITEM_TYPE = "Game";
     private final String CONSOLE_ITEM_TYPE = "Console";
     private final String TSHIRT_ITEM_TYPE = "T-Shirt";
+    private final CatalogClient catalogClient;
 
     InvoiceRepository invoiceRepo;
     TaxRepository taxRepo;
     ProcessingFeeRepository processingFeeRepo;
 
     @Autowired
-    public GameStoreServiceLayer(InvoiceRepository invoiceRepo, TaxRepository taxRepo, ProcessingFeeRepository processingFeeRepo) {
+    public GameStoreServiceLayer(CatalogClient catalogClient, InvoiceRepository invoiceRepo, TaxRepository taxRepo, ProcessingFeeRepository processingFeeRepo) {
+        this.catalogClient = catalogClient;
         this.invoiceRepo = invoiceRepo;
         this.taxRepo = taxRepo;
         this.processingFeeRepo = processingFeeRepo;
@@ -69,7 +69,7 @@ public class GameStoreServiceLayer {
         //Check if we have enough quantity
         if (invoiceViewModel.getItemType().equals(CONSOLE_ITEM_TYPE)) {
             Console tempCon = null;
-            Optional<Console> returnVal = consoleRepo.findById(invoiceViewModel.getItemId());
+            Optional<Console> returnVal = catalogClient.getConsoleById(invoiceViewModel.getItemId());
 
             if (returnVal.isPresent()) {
                 tempCon = returnVal.get();
@@ -85,7 +85,7 @@ public class GameStoreServiceLayer {
 
         } else if (invoiceViewModel.getItemType().equals(GAME_ITEM_TYPE)) {
             Game tempGame = null;
-            Optional<Game> returnVal = gameRepo.findById(invoiceViewModel.getItemId());
+            Optional<Game> returnVal = catalogClient.getGameById(invoiceViewModel.getItemId());
 
             if (returnVal.isPresent()) {
                 tempGame = returnVal.get();
@@ -100,7 +100,7 @@ public class GameStoreServiceLayer {
 
         } else if (invoiceViewModel.getItemType().equals(TSHIRT_ITEM_TYPE)) {
             TShirt tempTShirt = null;
-            Optional<TShirt> returnVal = tShirtRepo.findById(invoiceViewModel.getItemId());
+            Optional<TShirt> returnVal = catalogClient.getTshirtById(invoiceViewModel.getItemId());
 
             if (returnVal.isPresent()) {
                 tempTShirt = returnVal.get();
@@ -227,87 +227,8 @@ public class GameStoreServiceLayer {
         game.setQuantity(gameViewModel.getQuantity());
         game.setStudio(gameViewModel.getStudio());
 
-        gameViewModel.setId(gameRepo.save(game).getId());
+        gameViewModel.setId(catalogClient.createGame(game).getId());
         return gameViewModel;
-    }
-
-    public GameViewModel getGame(long id) {
-        Optional<Game> game = gameRepo.findById(id);
-        if (game == null)
-            return null;
-        else
-            return buildGameViewModel(game.get());
-    }
-
-    public void updateGame(GameViewModel gameViewModel) {
-
-        //Validate incoming Game Data in the view model
-        if (gameViewModel==null)
-            throw new IllegalArgumentException("No Game data is passed! Game object is null!");
-
-        //make sure the game exists. and if not, throw exception...
-        if (this.getGame(gameViewModel.getId())==null)
-            throw new IllegalArgumentException("No such game to update.");
-
-        Game game = new Game();
-        game.setId(gameViewModel.getId());
-        game.setTitle(gameViewModel.getTitle());
-        game.setEsrbRating(gameViewModel.getEsrbRating());
-        game.setDescription(gameViewModel.getDescription());
-        game.setPrice(gameViewModel.getPrice());
-        game.setQuantity(gameViewModel.getQuantity());
-        game.setStudio(gameViewModel.getStudio());
-
-        gameRepo.save(game);
-    }
-
-    public void deleteGame(long id) {
-        gameRepo.deleteById(id);
-    }
-
-    public List<GameViewModel> getGameByEsrb(String esrb) {
-        List<Game> gameList = gameRepo.findAllByEsrbRating(esrb);
-        List<GameViewModel> gvmList = new ArrayList<>();
-        if (gameList == null)
-            return null;
-        else
-            gameList.stream().forEach(g -> gvmList.add(buildGameViewModel(g)));
-        return gvmList;
-    }
-
-    public List<GameViewModel> getGameByTitle(String title) {
-        List<Game> gameList = gameRepo.findAllByTitle(title);
-        List<GameViewModel> gvmList = new ArrayList<>();
-        List<GameViewModel> exceptionList = null;
-
-        if (gameList == null) {
-            return exceptionList;
-        } else {
-            gameList.stream().forEach(g -> gvmList.add(buildGameViewModel(g)));
-        }
-        return gvmList;
-    }
-
-    public List<GameViewModel> getGameByStudio(String studio) {
-        List<Game> gameList = gameRepo.findAllByStudio(studio);
-        List<GameViewModel> gvmList = new ArrayList<>();
-
-        if (gameList == null)
-            return null;
-        else
-            gameList.stream().forEach(g -> gvmList.add(buildGameViewModel(g)));
-        return gvmList;
-    }
-
-    public List<GameViewModel> getAllGames() {
-        List<Game> gameList = gameRepo.findAll();
-        List<GameViewModel> gvmList = new ArrayList<>();
-
-        if (gameList == null)
-            return null;
-        else
-            gameList.stream().forEach(g -> gvmList.add(buildGameViewModel(g)));
-        return gvmList;
     }
 
     //CONSOLE SERVICE LAYER METHODS...
@@ -325,63 +246,7 @@ public class GameStoreServiceLayer {
         console.setPrice(consoleViewModel.getPrice());
         console.setQuantity(consoleViewModel.getQuantity());
 
-        return buildConsoleViewModel(consoleRepo.save(console));
-    }
-
-    public ConsoleViewModel getConsoleById(long id) {
-        Optional<Console> console = consoleRepo.findById(id);
-        if (console == null)
-            return null;
-        else
-            return buildConsoleViewModel(console.get());
-    }
-
-    public void updateConsole(ConsoleViewModel consoleViewModel) {
-
-        //Validate incoming Console Data in the view model
-        if (consoleViewModel==null)
-            throw new IllegalArgumentException("No console data is passed! Console object is null!");
-
-        //make sure the Console exists. and if not, throw exception...
-        if (this.getConsoleById(consoleViewModel.getId()) == null)
-            throw new IllegalArgumentException("No such console to update.");
-
-        Console console = new Console();
-        console.setId(consoleViewModel.getId());
-        console.setModel(consoleViewModel.getModel());
-        console.setManufacturer(consoleViewModel.getManufacturer());
-        console.setMemoryAmount(consoleViewModel.getMemoryAmount());
-        console.setProcessor(consoleViewModel.getProcessor());
-        console.setPrice(consoleViewModel.getPrice());
-        console.setQuantity(consoleViewModel.getQuantity());
-
-        consoleRepo.save(console);
-    }
-
-    public void deleteConsole(long id) {
-        consoleRepo.deleteById(id);
-    }
-
-    public List<ConsoleViewModel> getConsoleByManufacturer(String manufacturer) {
-        List<Console> consoleList = consoleRepo.findAllByManufacturer(manufacturer);
-        List<ConsoleViewModel> cvmList = new ArrayList<>();
-
-        if (consoleList == null)
-            return null;
-        else
-            consoleList.stream().forEach(c -> cvmList.add(buildConsoleViewModel(c)));
-        return cvmList;
-    }
-
-    public List<ConsoleViewModel> getAllConsoles() {
-        List<Console> consoleList = consoleRepo.findAll();
-        List<ConsoleViewModel> cvmList = new ArrayList<>();
-
-        if (consoleList == null)
-            return null;
-        else
-            consoleList.stream().forEach(c -> cvmList.add(buildConsoleViewModel(c)));
-        return cvmList;
+        return buildConsoleViewModel(catalogClient.createConsole(console));
     }
 
     //TSHIRT SERVICE LAYER
@@ -399,76 +264,9 @@ public class GameStoreServiceLayer {
         tShirt.setPrice(tShirtViewModel.getPrice());
         tShirt.setQuantity(tShirtViewModel.getQuantity());
 
-        tShirt = tShirtRepo.save(tShirt);
+        tShirt = catalogClient.createTshirt(tShirt);
 
         return buildTShirtViewModel(tShirt);
-    }
-
-    public TShirtViewModel getTShirt(long id) {
-        Optional<TShirt> tShirt = tShirtRepo.findById(id);
-        if (tShirt == null)
-            return null;
-        else
-            return buildTShirtViewModel(tShirt.get());
-    }
-
-    public void updateTShirt(TShirtViewModel tShirtViewModel) {
-
-        // Remember model view has already been validated through JSR 303
-        // Validate incoming TShirt Data in the view model
-        if (tShirtViewModel==null) throw new IllegalArgumentException("No TShirt is passed! TShirt object is null!");
-
-        //make sure the Console exists. and if not, throw exception...
-        if (this.getTShirt(tShirtViewModel.getId())==null)
-            throw new IllegalArgumentException("No such TShirt to update.");
-
-        TShirt tShirt = new TShirt();
-        tShirt.setId(tShirtViewModel.getId());
-        tShirt.setSize(tShirtViewModel.getSize());
-        tShirt.setColor(tShirtViewModel.getColor());
-        tShirt.setDescription(tShirtViewModel.getDescription());
-        tShirt.setPrice(tShirtViewModel.getPrice());
-        tShirt.setQuantity(tShirtViewModel.getQuantity());
-
-        tShirtRepo.save(tShirt);
-    }
-
-    public void deleteTShirt(long id) {
-
-        tShirtRepo.deleteById(id);
-    }
-
-    public List<TShirtViewModel> getTShirtByColor(String color) {
-        List<TShirt> tShirtList = tShirtRepo.findAllByColor(color);
-        List<TShirtViewModel> tvmList = new ArrayList<>();
-
-        if (tShirtList == null)
-            return null;
-        else
-            tShirtList.stream().forEach(t -> tvmList.add(buildTShirtViewModel(t)));
-        return tvmList;
-    }
-
-    public List<TShirtViewModel> getTShirtBySize(String size) {
-        List<TShirt> tShirtList = tShirtRepo.findAllBySize(size);
-        List<TShirtViewModel> tvmList = new ArrayList<>();
-
-        if (tShirtList == null)
-            return null;
-        else
-            tShirtList.stream().forEach(t -> tvmList.add(buildTShirtViewModel(t)));
-        return tvmList;
-    }
-
-    public List<TShirtViewModel> getAllTShirts() {
-        List<TShirt> tShirtList = tShirtRepo.findAll();
-        List<TShirtViewModel> tvmList = new ArrayList<>();
-
-        if (tShirtList == null)
-            return null;
-        else
-            tShirtList.stream().forEach(t -> tvmList.add(buildTShirtViewModel(t)));
-        return tvmList;
     }
 
     //Helper Methods...
